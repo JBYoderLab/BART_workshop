@@ -14,11 +14,19 @@ Materials for a workshop demonstrating the uses of Bayesian additive regression 
 Contents
 --------
 
-- `data` --- supporting materials
-- `topics` --- code for worked examples, organized by topics
+- `data` --- supporting materials for the worked examples (more than 100Mb, download with care)
+- `topics` --- code and slides for worked examples, organized by topic
 
 
 Suggested order of operation
 ----------------------------
+
+The code provided should let you dip in to any one example and take what you want from it. However, this material was developed for a multi-day workshop, and that experience is best reproduced if you work through it in the same order as presented.
+
+1. Species distribution modeling with BARTs (binary response)
+
+2. Higher dimensional data, predictor selection, and RI modeling
+
+3. Abundance/frequency data with BARTs (continuous response)
 
 
