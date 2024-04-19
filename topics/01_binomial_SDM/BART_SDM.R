@@ -1,5 +1,5 @@
 # Species distribution modeling with BARTs in R
-# Jeremy Yoder, 18 Apr 2024
+# Jeremy B. Yoder, 19 Apr 2024
 
 # Clears the environment and load key packages
 rm(list=ls())
@@ -32,10 +32,14 @@ glimpse(jtOcc)
 
 # Visualize the points on a map of the US Southwest
 # As you can see, there's quite a bit of heterogeneity in sampling density.
+{png("topics/01_binomial_SDM/JT_occurrences_map.png", height=750, width=750)
 ggplot() + 
   geom_sf(data=ne_states(country = "United States of America", returnclass = "sf"), fill="antiquewhite1") + 
-  geom_point(data=jtOcc, aes(x=lon, y=lat)) + 
-  coord_sf(xlim = c(-119, -112.75), ylim = c(33.25, 38.25), expand = TRUE)
+  geom_point(data=jtOcc, aes(x=lon, y=lat), color="forestgreen", size=1) + 
+  coord_sf(xlim = c(-119, -112.75), ylim = c(33.25, 38.25), expand = TRUE) + 
+  theme_bw(base_size=18) + theme(axis.title=element_blank(), panel.background=element_rect(fill="slategray3"), legend.position="none")
+}
+dev.off()
 
 
 # Environmental layers we'll use for modeling
@@ -84,8 +88,8 @@ occ_sf <- st_as_sf(jtOcc, coords=c("lon", "lat"), crs=4326) # coordinates are in
 occ_sf <- st_transform(occ_sf, crs=3857) # units in meters
 
 x.5k <- st_union(st_buffer(occ_sf, 5000)) # polygons based on 5km radii around occ_thin
-x.50k <- st_union(st_buffer(occ_sf, 50000)) # polygons based on 50km radii
-x.donuts <- st_difference(x.50k, x.5k) # difference between above
+x.40k <- st_union(st_buffer(occ_sf, 40000)) # polygons based on 40km radii
+x.donuts <- st_difference(x.40k, x.5k) # difference between above
 
 ggplot() + geom_sf(data=x.donuts) 
 # A conservative region for pseudoabsences: Not within 5km of a presence point,
@@ -96,12 +100,15 @@ ggplot() + geom_sf(data=x.donuts)
 pseudabs <- st_sample(x.donuts, nrow(jtOcc))
 
 # Visualize on our map
+{png("topics/01_binomial_SDM/JT_presence_pseudoabsence_map.png", height=750, width=750)
 ggplot() + 
   geom_sf(data=ne_states(country = "United States of America", returnclass = "sf"), fill="antiquewhite1") + 
   geom_sf(data=occ_sf, color="blue", size=1) + 
   geom_sf(data=pseudabs, color="red", size=1) + 
-  coord_sf(xlim = c(-119, -112.75), ylim = c(33.25, 38.25), expand = TRUE)
-  
+  coord_sf(xlim = c(-119, -112.75), ylim = c(33.25, 38.25), expand = TRUE) + 
+  theme_bw(base_size=18) + theme(axis.title=element_blank(), panel.background=element_rect(fill="slategray3"), legend.position="none")
+}
+dev.off()
 
 #-------------------------------------------------------------------------
 # Assemble environmental values for our presences and pseudoabsences 
@@ -116,11 +123,11 @@ glimpse(pa_envs) # And ditto for the pseudoabsences
 # Now, assemble a single data frame with presence/absence coordinates and the
 # associated BioClim values:
 
-PA <- rbind(data.frame(lon=jtOcc$lon, lat=jtOcc$lat, pres=1, pres_envs), 
-          data.frame(lon=coordinates(pa_sp)[,1], lat=coordinates(pa_sp)[,2], pres=0, pa_envs)) %>% 
-          mutate(id = row_number())
+PA <- rbind(data.frame(lon=jtOcc$lon, lat=jtOcc$lat, JT=1, pres_envs), 
+          data.frame(lon=coordinates(pa_sp)[,1], lat=coordinates(pa_sp)[,2], JT=0, pa_envs)) %>% 
+          mutate(id = row_number()) %>% filter(!is.na(MAT))
 
-glimpse(PA) # should be twice the size of the presence data set
+glimpse(PA) # should be ~twice the size of the presence data set
 
 # You may want to write out this data frame for later /read back in 
 write.table(PA, "data/JT_presence-pseudoabsence-envs.txt", sep=",", col.names=TRUE, row.names=FALSE, quote=FALSE)
@@ -134,7 +141,7 @@ glimpse(PA)
 xnames <- c("MAT", "MDR", "ITH", "TS", "MWaMT", "MCMT", "TAR", "MWeQT", "MDQT", "MWaQT", "MCQT", "AP", "PWeM", "PDM", "PS", "PWeQ", "PDQ", "PWaQ", "PCQ")
 
 # Fit a BRT model with defaults provided by `dismo`
-jtBRM <- gbm.step(data=PA, gbm.x=xnames, gbm.y="pres", family = "bernoulli", tree.complexity = 5, learning.rate = 0.05, bag.fraction = 0.5)
+jtBRM <- gbm.step(data=PA, gbm.x=xnames, gbm.y="JT", family = "bernoulli", tree.complexity = 5, learning.rate = 0.05, bag.fraction = 0.5)
 
 jtBRM
 
@@ -153,10 +160,10 @@ summary(jtBRM.simp)
 dev.off()
 
 # Fit a new stepwise model using the optimal predictors identified (in my run, this is 9, your mileage may vary)
-jtBRM2 <- gbm.step(data=PA, gbm.x=jtBRM.simp$pred.list[[9]], gbm.y="pres", family = "bernoulli", tree.complexity = 5, learning.rate = 0.05, bag.fraction = 0.5)
+jtBRM2 <- gbm.step(data=PA, gbm.x=jtBRM.simp$pred.list[[9]], gbm.y="JT", family = "bernoulli", tree.complexity = 5, learning.rate = 0.05, bag.fraction = 0.5)
 
 # OR simply jump ahead by using the predictor subset I found in my own analysis:
-jtBRM2 <- gbm.step(data=PA, gbm.x=c("MDR", "TS", "MCMT", "TAR", "MWeQT", "MCQT", "AP", "PS", "PDQ", "PWaQ"), gbm.y="pres", family = "bernoulli", tree.complexity = 5, learning.rate = 0.05, bag.fraction = 0.5)
+jtBRM2 <- gbm.step(data=PA, gbm.x=c("MDR", "TS", "MCMT", "TAR", "MWeQT", "MCQT", "AP", "PS", "PDQ", "PWaQ"), gbm.y="JT", family = "bernoulli", tree.complexity = 5, learning.rate = 0.05, bag.fraction = 0.5)
 
 write_rds(jtBRM2, file="output/models/jtBRM.rds") # save the results
 jtBRM2 <- read_rds("output/models/jtBRM.rds") # reload later
@@ -201,13 +208,18 @@ dev.off()
 xnames <- c("MAT", "MDR", "ITH", "TS", "MWaMT", "MCMT", "TAR", "MWeQT", "MDQT", "MWaQT", "MCQT", "AP", "PWeM", "PDM", "PS", "PWeQ", "PDQ", "PWaQ", "PCQ")
 
 # Fit a simple BART model with all the predictors
-jtBART <- bart(y.train=PA[,"pres"], x.train=PA[,xnames], keeptrees=TRUE)
+jtBART <- bart(y.train=PA[,"JT"], x.train=PA[,xnames], keeptrees=TRUE)
+
+{png("topics/01_binomial_SDM/jtBART_summary.png", width=750, height=750)
 
 summary(jtBART)
 
+}
+dev.off()
+
 # Again, we want to simplify the model from the full set of 19 bioclim variables
 # We can do this in stepwise BART model training. This will be slow!
-jtBART.step <- bart.step(y.data=as.numeric(PA[,"pres"]), x.data=PA[,xnames], full=FALSE, quiet=TRUE)
+jtBART.step <- bart.step(y.data=as.numeric(PA[,"JT"]), x.data=PA[,xnames], full=FALSE, quiet=TRUE)
 
 # It may be useful to save the model object for later work. 
 # First, we need to "touch" the model state to make sure the trees are saved with the rest of the model.
@@ -215,7 +227,7 @@ jtBART.step <- bart.step(y.data=as.numeric(PA[,"pres"]), x.data=PA[,xnames], ful
 invisible(jtBART.step$fit$state)
 # Then write out the model to an Rdata file
 write_rds(jtBART.step, file="output/models/jtBART.step.rds") 
-# jtBART.step <- read_rds(file="output/models/jtBART.step.Rdata")
+jtBART.step <- read_rds(file="output/models/jtBART.step.rds")
 
 summary(jtBART.step)
 
