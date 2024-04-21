@@ -255,6 +255,10 @@ plot(jtDART$sigma_mu) # examine MCMC sampling
 
 variable_selection <- data.frame(varimp=posterior_probs(jtDART)$varimp, post_prob=posterior_probs(jtDART)$post_probs,predictor=xnames)
 
+# which predictors have posterior inclusion probability > 0.75? (Arbitrary threshold)
+variable_selection %>% filter(post_prob > 0.75)
+variable_selection %>% filter(post_prob > 0.75)
+
 {png("topics/03_predictor_selection/jtDART_variable_selection.png", width=1000, height=500)
 
 ggplot() +
@@ -265,6 +269,9 @@ ggplot() +
 
 }
 dev.off()
-# This suggests we will only include predictors with PIP > 0.75 --- this cutoff is somewhat arbitrary.
+
+
+
+
 
 

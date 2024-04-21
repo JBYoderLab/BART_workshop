@@ -2,7 +2,7 @@ Working with BARTs in R
 =======================
 
 
-README updated 19 April 2024.
+README updated 20 April 2024.
 
 
 Project description
@@ -30,6 +30,6 @@ The code provided should let you dip into any one example and take what you want
 
 3. Predictor selection, and higher-dimensional data
 
-4. Abundance/frequency data (continuous response)
+4. Modeling a continuous response
 
-
+5. Predicting annual flowering by Joshua trees
