@@ -121,8 +121,6 @@ jtVarimp <- varimp.diag(y.data=as.numeric(PA[,"pres"]), x.data=PA[,xnames])
 # a useful fix for a minor issue
 jtVarimp$data <- jtVarimp$data %>% mutate(trees = factor(trees, c(10,20,50,100,150,200)))
 
-levels(jtVarimp$data$names) <- xnames
-
 jtVarimp$labels$group <- "Trees"
 jtVarimp$labels$colour <- "Trees"
 

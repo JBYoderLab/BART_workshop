@@ -1,5 +1,5 @@
-# Predictor selection and RI models with BARTs
-# Jeremy B. Yoder, 19 Apr 2024
+# Modeling a continuous response with BARTs
+# Jeremy B. Yoder, 21 Apr 2024
 
 # Clears the environment and load key packages
 rm(list=ls())
@@ -21,7 +21,7 @@ library("SoftBart")
 #-----------------------------------------------------------
 # Load and prepare data
 
-# Burned area (in ha) of forest fires and weather conditions within 30 min of ignition
+# Burned area of forest fires and weather conditions within 30 min of ignition
 #
 #  P. Cortez and A. Morais. A Data Mining Approach to Predict Forest Fires using Meteorological Data. 
 #  In J. Neves, M. F. Santos and J. Machado Eds., New Trends in Artificial Intelligence, 
@@ -47,18 +47,67 @@ fires <- read.csv("data/forest_fires/forestfires.csv") %>% mutate(logArea=log10(
 
 glimpse(fires)
 
+#-------------------------------------------------------------------------
+# BARTs via embarcadero
+
+# train a dBARTs regression with all the possible predictors
+xvars <- c("FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")
+
+fireBART <- bart(y.train=fires[,"logArea"], x.train=fires[,xvars], keeptrees=TRUE)
+
+# the summary function, unfortunately, assumes a binary classification model
+summary(fireBART)
+
+fireVarimp <- varimp.diag(y.data=fires[,"logArea"], x.data=fires[,xvars])
+
+fireVarimp$data <- fireVarimp$data %>% mutate(trees = factor(trees, c(10,20,50,100,150,200)))
+
+fireVarimp$labels$group <- "Trees"
+fireVarimp$labels$colour <- "Trees"
+
+write_rds(fireVarimp, file="output/models/fire_varimp.rds") # save the work
+fireVarimp <- read_rds(file="output/models/fire_varimp.rds") # read it back in
+
+# Write out the varimp diagnostic plot
+{png(file="topics/04_continuous_response/fire_varimp_plot.png", width=750, height=500)
+
+fireVarimp + 
+theme_bw(base_size=18) +
+theme(legend.position="inside", legend.position.inside=c(0.8, 0.7))  # okay nice
+
+}
+dev.off()
+
+# fit a new BART model with the predictors suggested by varimp.diag()
+varX <- c("temp", "rain", "wind")
+fireBART2 <- bart(y.train=fires[,"logArea"], x.train=fires[,varX], keeptrees=TRUE)
+
+# examine predictor partial effects (may be slow!)
+fireBART2.p <- partial(fireBART2, varX, trace=FALSE, smooth=5)
+fireBART2.p
+
+partvals <- data.frame(predictor=rep(varX, each=nrow(fireBART2.p[[1]]$data)), do.call("rbind", lapply(fireBART2.p, function(x) x$data))) %>% mutate(predictor=factor(predictor, varX))
+
+
+{png("topics/04_continuous_response/fireBART2_partials.png", width=1000, height=500)
+
+ggplot(partvals) + geom_ribbon(aes(x=x, ymin=q05, ymax=q95), fill="slategray2") + geom_line(aes(x=x, y=med), color="white") + facet_wrap("predictor", nrow=1, scale="free") + labs(y="Marginal area") + theme_bw(base_size=24) + theme(axis.title.x=element_blank(), panel.spacing=unit(0.2,"in"))
+
+}
+dev.off()
+
 
 #-------------------------------------------------------------------------
 # SoftBarts regressions
 
 # train a SoftBarts regression with all the possible predictors
-xvars <- c("month", "day", "FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")
+xvars <- c("FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")
 
 train <- fires %>% slice_sample(prop=0.8) # use 80% of data for training
 test <- fires %>% filter(!id%in%train$id) # use the other 20% for testing
 
 # fit the model
-fireDART <- softbart_regression(paste("logArea ~", paste(xvars, collapse="+")), data=train, test_data=test, k=2, opts=Opts(num_burn=5000, num_save=5000))
+fireDART <- softbart_regression(paste("logArea ~", paste(xvars, collapse="+")), data=train, test_data=test, k=2, opts=Opts(num_burn=2000, num_save=1000, num_thin=100)) # this may be slow
 
 write_rds(fireDART, "output/models/fireDART.rds")
 fireDART <- read_rds("output/models/fireDART.rds")
@@ -85,32 +134,31 @@ dev.off()
 # fit a new model with the top predictors
 xtop <- variable_selection %>% filter(post_prob > 0.55) %>% .$predictor
 
-fireDART2 <- softbart_regression(paste("logArea ~", paste(xtop, collapse="+")), data=train, test_data=test, k=2, opts=Opts(num_burn=5000, num_save=5000))
+fireDART2 <- softbart_regression(paste("logArea ~", paste(xtop, collapse="+")), data=train, test_data=test, k=2, opts=Opts(num_burn=2000, num_save=1000, num_thin=100))
 
-plot(colMeans(fireDART$mu_test), test$logArea)
-abline(a = 0, b = 1)
+plot(fireDART2$sigma_mu) # examine MCMC sampling
 
 
 # visualize partial effects of individual predictors
-grid_wind <- seq(from = min(fires$wind), to = max(fires$wind), length = 20)
-pdf_wind <- partial_dependence_regression(fireDART2, train, "wind", grid_wind)
+grid_temp <- seq(from = min(fires$temp), to = max(fires$temp), length = 20)
+pdf_temp <- partial_dependence_regression(fireDART2, train, "temp", grid_temp)
 
-{png("topics/04_continuous_response/fireDART2_partial_wind.png", width=500, height=500)
-ggplot(pdf_wind$pred_df, aes(x = wind, y = mu)) +
+{png("topics/04_continuous_response/fireDART2_partial_temp.png", width=500, height=500)
+ggplot(pdf_temp$pred_df, aes(x = temp, y = mu)) +
 	geom_line(stat = "summary", fun = mean) +
-	geom_ribbon(stat = "summary", alpha = 0.3, fun.min = function(x) quantile(x, 0.025), fun.max = function(x) quantile(x, 0.975)) + xlab("wind") + ylab(expression(log[10](area))) +
+	geom_ribbon(stat = "summary", alpha = 0.3, fun.min = function(x) quantile(x, 0.025), fun.max = function(x) quantile(x, 0.975)) + xlab("temp") + ylab(expression(log[10](area+1))) +
 	theme_bw(base_size=18)
 }
 dev.off()
 
 
-grid_DC <- seq(from = min(fires$DC), to = max(fires$DC), length = 20)
-pdf_DC <- partial_dependence_regression(fireDART2, train, "DC", grid_DC)
+grid_RH <- seq(from = min(fires$RH), to = max(fires$RH), length = 20)
+pdf_RH <- partial_dependence_regression(fireDART2, train, "RH", grid_RH)
 
-{png("topics/04_continuous_response/fireDART2_partial_DC.png", width=500, height=500)
-ggplot(pdf_wind$pred_df, aes(x = DC, y = mu)) +
+{png("topics/04_continuous_response/fireDART2_partial_RH.png", width=500, height=500)
+ggplot(pdf_RH$pred_df, aes(x = RH, y = mu)) +
 	geom_line(stat = "summary", fun = mean) +
-	geom_ribbon(stat = "summary", alpha = 0.3, fun.min = function(x) quantile(x, 0.025), fun.max = function(x) quantile(x, 0.975)) + xlab("DC index") + ylab(expression(log[10](area))) +
+	geom_ribbon(stat = "summary", alpha = 0.3, fun.min = function(x) quantile(x, 0.025), fun.max = function(x) quantile(x, 0.975)) + xlab("RH") + ylab(expression(log[10](area+1))) +
 	theme_bw(base_size=18)
 }
 dev.off()

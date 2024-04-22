@@ -1,5 +1,5 @@
 # Species distribution modeling with BARTs in R
-# Jeremy B. Yoder, 19 Apr 2024
+# Jeremy B. Yoder, 21 Apr 2024
 
 # Clears the environment and load key packages
 rm(list=ls())
@@ -185,6 +185,9 @@ dev.off()
 # And, finally, predict to the full range of the Mojave:
 jtBRM.pred <- predict(envs, jtBRM2, n.trees=jtBRM2$gbm.call$best.trees, type="response")
 
+writeRaster(jtBRM.pred, "output/jt_BRM_SDM_pred.bil", overwrite=TRUE)
+jtBRM.pred <- raster("output/jt_BRM_SDM_pred.bil")
+
 jtBRM.pred.df <- cbind(coordinates(jtBRM.pred), as.data.frame(jtBRMpred)) %>% rename(prJT = layer, lon=x, lat=y)
 glimpse(jtBRMpred.df)
 
@@ -245,7 +248,6 @@ jtBART.partials
 # Build a multi-panel partials figure
 partvals <- data.frame(predictor=rep(stepX, each=nrow(jtBART.partials[[1]]$data)), do.call("rbind", lapply(jtBART.partials, function(x) x$data))) %>% mutate(predictor=factor(predictor, stepX))
 
-
 {png("topics/01_binomial_SDM/jtBART.step_partials.png", width=1000, height=1000)
 
 ggplot(partvals) + geom_ribbon(aes(x=x, ymin=q05, ymax=q95), fill="#41b6c4") + geom_line(aes(x=x, y=med), color="white") + facet_wrap("predictor", nrow=3, scale="free") + labs(y="Marginal Pr(occ)") + theme_bw(base_size=24) + theme(axis.title.x=element_blank(), panel.spacing=unit(0.2,"in"))
@@ -263,12 +265,34 @@ varimp(jtBART.step, plot=TRUE)
 }
 dev.off()
 
+# Spatial partial effects of predictors ("spartials")
+# This may be slow
+spart <- spartial(jtBART.step, envs, x.vars=stepX)
+
+writeRaster(spart, "output/Jotr_BART_SDM_spartials.bil", overwrite=TRUE)
+spart <- stack("output/Jotr_BART_SDM_spartials.bil")
+
+spart.df <- cbind(coordinates(spart), as.data.frame(spart)) %>% rename(lon=x, lat=y) %>% pivot_longer(all_of(stepX), names_to="predictor", values_to="prFL") %>% mutate(predictor=factor(predictor,stepX))
+
+{png("topics/01_binomial_SDM/Jotr_BART_SDM_spartials.png", width=1000, height=750)
+
+ggplot() + 
+	geom_tile(data=spart.df, aes(x=lon, y=lat, fill=prFL)) + 
+	geom_sf(data=ne_states(country = "United States of America", returnclass = "sf"), fill=NA, color="white") + 
+	facet_wrap("predictor", nrow=3, labeller="label_parsed") + 
+	scale_fill_gradient(low="#ffffcc", high="#253494", name="Marginal Pr(occ)") + 
+	coord_sf(xlim = c(-119, -112.5), ylim = c(33.5, 38), expand = TRUE) +
+	theme_bw(base_size=24) + theme(axis.title=element_blank(), axis.text=element_blank(), legend.position="bottom", panel.background=element_rect(fill="white"), panel.grid=element_blank(), legend.key.width=unit(0.05, "npc"))
+
+}
+dev.off()
 
 # And, finally, predict to the full range of the Mojave:
 
-jtBART.step.pred <- predict(jtBART.step, envs[[stepX]], splitby=20)
+jtBART.step.pred <- predict(jtBART.step, envs, splitby=20)
 
-jtBART.step.pred
+writeRaster(jtBART.step.pred, "output/jt_BART.step_SDM_pred.bil", overwrite=TRUE)
+jtBART.step.pred <- raster("output/jt_BART.step_SDM_pred.bil")
 
 jtBART.step.pred.df <- cbind(coordinates(jtBART.step.pred), as.data.frame(jtBART.step.pred)) %>% rename(prJT = layer, lon=x, lat=y)
 glimpse(jtBART.step.pred.df)

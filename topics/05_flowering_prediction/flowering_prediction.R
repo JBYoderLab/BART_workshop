@@ -1,5 +1,5 @@
 # Using BARTs to model Joshua tree mast-flowering
-# Jeremy Yoder, 20 Apr 2024
+# Jeremy B. Yoder, 20 Apr 2024
 
 rm(list=ls())  # Clears the environment and load key packages
 
