@@ -2,7 +2,7 @@ Working with BARTs in R
 =======================
 
 
-README updated 20 April 2024.
+README updated 24 April 2024.
 
 
 Project description
@@ -14,9 +14,10 @@ Materials for a workshop demonstrating the uses of Bayesian additive regression 
 Contents
 --------
 
-- `data` --- supporting materials for the worked examples (more than 100Mb, download with care)
 - `topics` --- code and slides for worked examples, organized by topic (see below)
-- `output` --- materials output by scripts in the worked examples, including saved models (more than 1Gb, not in the version-controlled repo)
+- `output` --- materials output by scripts in the worked examples. Saved models amount to more than 1Gb, and are not in the version-controlled repo or posted for download.
+- `data` --- data sets needed for the worked examples are more than 100Mb in total, and not posted here, but you can get them from [this Google Drive folder](https://drive.google.com/drive/folders/1JW5iGgF8S2VoYgzjJ5MMXlSP7kWrnto5?usp=share_link).
+
 
 
 Module contents
