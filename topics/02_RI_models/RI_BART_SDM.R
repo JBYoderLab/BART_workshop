@@ -25,7 +25,7 @@ glimpse(PA)
 
 # Visualize the points on a map of the US Southwest
 # As you can see, there's quite a bit of heterogeneity in sampling density!
-{png("topics/02_predictor_selection/JT_presence_pseudoabsence_map.png", height=750, width=750)
+{png("topics/02_RI_models/JT_presence_pseudoabsence_map.png", height=750, width=750)
 ggplot() + 
   geom_sf(data=ne_states(country = "United States of America", returnclass = "sf"), fill="antiquewhite1") + 
   geom_point(data=PA, aes(x=lon, y=lat, color=factor(JT)), size=1) + 
@@ -152,7 +152,7 @@ dev.off()
 # Make predictions while controlling for the RI term
 
 # We can make predictions based on the marginal effects of the non-RI predictors
-pred.ri0 <- predict(jtRIBART.step, envs[[RIstepX]], ri.data=envs[["STATE"]], ri.name="STATE", splitby=20, ri.pred=FALSE)
+pred.ri0 <- predict(jtRIBART.step, envs, ri.data=envs[["STATE"]], ri.name="STATE", splitby=20, ri.pred=FALSE)
 # (You have to specify values for the RI predictor, but then we cancel it out with ri.pred=FALSE)
 
 

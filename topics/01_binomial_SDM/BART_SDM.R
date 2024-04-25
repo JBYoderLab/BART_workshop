@@ -188,8 +188,8 @@ jtBRM.pred <- predict(envs, jtBRM2, n.trees=jtBRM2$gbm.call$best.trees, type="re
 writeRaster(jtBRM.pred, "output/jt_BRM_SDM_pred.bil", overwrite=TRUE)
 jtBRM.pred <- raster("output/jt_BRM_SDM_pred.bil")
 
-jtBRM.pred.df <- cbind(coordinates(jtBRM.pred), as.data.frame(jtBRMpred)) %>% rename(prJT = layer, lon=x, lat=y)
-glimpse(jtBRMpred.df)
+jtBRM.pred.df <- cbind(coordinates(jtBRM.pred), as.data.frame(jtBRM.pred)) %>% rename(prJT = layer, lon=x, lat=y)
+glimpse(jtBRM.pred.df)
 
 {png("topics/01_binomial_SDM/jtBRM_predicted.png", width=1000, height=1000)
 
@@ -271,6 +271,9 @@ spart <- spartial(jtBART.step, envs, x.vars=stepX)
 
 writeRaster(spart, "output/Jotr_BART_SDM_spartials.bil", overwrite=TRUE)
 spart <- stack("output/Jotr_BART_SDM_spartials.bil")
+names(spart) <- stepX
+
+plot(spart[["MWeQT"]])
 
 spart.df <- cbind(coordinates(spart), as.data.frame(spart)) %>% rename(lon=x, lat=y) %>% pivot_longer(all_of(stepX), names_to="predictor", values_to="prFL") %>% mutate(predictor=factor(predictor,stepX))
 
@@ -294,7 +297,7 @@ jtBART.step.pred <- predict(jtBART.step, envs, splitby=20)
 writeRaster(jtBART.step.pred, "output/jt_BART.step_SDM_pred.bil", overwrite=TRUE)
 jtBART.step.pred <- raster("output/jt_BART.step_SDM_pred.bil")
 
-jtBART.step.pred.df <- cbind(coordinates(jtBART.step.pred), as.data.frame(jtBART.step.pred)) %>% rename(prJT = layer, lon=x, lat=y)
+jtBART.step.pred.df <- cbind(coordinates(jtBART.step.pred), as.data.frame(jtBART.step.pred)) %>% rename(prJT = jt_BART.step_SDM_pred, lon=x, lat=y)
 glimpse(jtBART.step.pred.df)
 
 {png("topics/01_binomial_SDM/jtBART.step_predicted.png", width=1000, height=1000)

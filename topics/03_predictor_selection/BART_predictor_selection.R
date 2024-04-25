@@ -116,7 +116,7 @@ stepX # these are the predictors kept in the stepwise model
 
 # Alternatively, use varimp.diag() for predictor selection
 # This may be slow!
-jtVarimp <- varimp.diag(y.data=as.numeric(PA[,"pres"]), x.data=PA[,xnames])
+jtVarimp <- varimp.diag(y.data=as.numeric(PA[,"JT"]), x.data=PA[,xnames])
 
 # a useful fix for a minor issue
 jtVarimp$data <- jtVarimp$data %>% mutate(trees = factor(trees, c(10,20,50,100,150,200)))
@@ -251,7 +251,7 @@ jtDART <- read_rds("output/models/jtDART.rds")
 
 plot(jtDART$sigma_mu) # examine MCMC sampling
 
-variable_selection <- data.frame(varimp=posterior_probs(jtDART)$varimp, post_prob=posterior_probs(jtDART)$post_probs,predictor=xnames)
+variable_selection <- data.frame(varimp=posterior_probs(jtDART)$varimp, post_prob=posterior_probs(jtDART)$post_probs, predictor=xnames)
 
 # which predictors have posterior inclusion probability > 0.75? (Arbitrary threshold)
 variable_selection %>% filter(post_prob > 0.75)
