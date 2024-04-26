@@ -103,12 +103,10 @@ dev.off()
 # train a SoftBarts regression with all the possible predictors
 xvars <- c("FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")
 
-train <- fires %>% slice_sample(prop=0.8) # use 80% of data for training
-test <- fires %>% filter(!id%in%train$id) # use the other 20% for testing
-
 # fit the model
-fireDART <- softbart_regression(paste("logArea ~", paste(xvars, collapse="+")), data=train, test_data=test, k=2, opts=Opts(num_burn=2000, num_save=1000, num_thin=100)) # this may be slow
+fireDART <- softbart_regression(paste("logArea ~", paste(xvars, collapse="+")), data=fires, test_data=fires, k=2, opts=Opts(num_burn=2000, num_save=1000, num_thin=100)) # this may be slow
 
+invisible(fireDART$forest)
 write_rds(fireDART, "output/models/fireDART.rds")
 fireDART <- read_rds("output/models/fireDART.rds")
 
@@ -134,14 +132,19 @@ dev.off()
 # fit a new model with the top predictors
 xtop <- variable_selection %>% filter(post_prob > 0.55) %>% .$predictor
 
-fireDART2 <- softbart_regression(paste("logArea ~", paste(xtop, collapse="+")), data=train, test_data=test, k=2, opts=Opts(num_burn=2000, num_save=1000, num_thin=100))
+fireDART2 <- softbart_regression(paste("logArea ~", paste(xtop, collapse="+")), data=fires, test_data=fires, k=2, opts=Opts(num_burn=2000, num_save=1000, num_thin=100))
+
+invisible(fireDART2$forest)
+write_rds(fireDART2, "output/models/fireDART2.rds")
+fireDART2 <- read_rds("output/models/fireDART2.rds")
+
 
 plot(fireDART2$sigma_mu) # examine MCMC sampling
 
 
 # visualize partial effects of individual predictors
 grid_temp <- seq(from = min(fires$temp), to = max(fires$temp), length = 20)
-pdf_temp <- partial_dependence_regression(fireDART2, train, "temp", grid_temp)
+pdf_temp <- partial_dependence_regression(fireDART2, fires, "temp", grid_temp)
 
 {png("topics/04_continuous_response/fireDART2_partial_temp.png", width=500, height=500)
 ggplot(pdf_temp$pred_df, aes(x = temp, y = mu)) +
@@ -153,7 +156,7 @@ dev.off()
 
 
 grid_RH <- seq(from = min(fires$RH), to = max(fires$RH), length = 20)
-pdf_RH <- partial_dependence_regression(fireDART2, train, "RH", grid_RH)
+pdf_RH <- partial_dependence_regression(fireDART2, fires, "RH", grid_RH)
 
 {png("topics/04_continuous_response/fireDART2_partial_RH.png", width=500, height=500)
 ggplot(pdf_RH$pred_df, aes(x = RH, y = mu)) +
